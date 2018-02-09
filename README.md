@@ -5,6 +5,8 @@ GERMAN COMPOUND SPLITTER
 A German decomposition filter that breaks complex words into other forms, written in **JAVA**.
 
 **features 4 components:**
+* CompoundSplitter build class for composing FST from dictionaries.
+* CompoundSplitter class, for splitting german words.
 * Lucene TokenFilter, and TokenFilterFactory that generates split tokens.
 * Lucene Analyzer that encompasses TokenFilter for test cases.
 
@@ -29,6 +31,7 @@ A German decomposition filter that breaks complex words into other forms, writte
     Versicherungskaufmann           [versicherung, kauf, mann]
     Anwendungsbetreuer              [anwendung, betreuer]
     
+## Lucene, Solr, ElasticSearch Analysis
 The lucene analyzer that comes with this package is a Graph filter, which means if used on the query-side of the analysis chain it will properly generate query graphs for overlapping terms. This is accomplished by correctly setting the ``posIncrement`` and ``posLength`` attributes of each token.
 For this to work in **Solr**, you must not split on whitespace by setting the ``sow=false``.  This has the unfortunate downside of preventing phrase queries from working correctly, so you will be unable to use the ``pf``, ``pf2`` parameters to generate phrase queries.
 
@@ -36,11 +39,20 @@ For more information about Token Graphs in modern versions of lucene, solr, or e
 -    https://lucidworks.com/2017/04/18/multi-word-synonyms-solr-adds-query-time-support/
 -    https://www.elastic.co/blog/multitoken-synonyms-and-graph-queries-in-elasticsearch
 
+**Solr Analyzer Configuration:**
 ```xml
+<fieldType name="field" class="solr.TextField">
+    <analyzer class="org.apache.lucene.analysis.de.compounds.GraphGermanCompoundAnalyzer"/>
+</fieldType>
 ```
 
+**Solr TokenFilterFactory Configuration:**
 
 ```xml
+<filter class="org.apache.lucene.analysis.de.compounds.GraphGermanCompoundTokenFilterFactory"
+        minWordSize="5" 
+        onlyLongestMatch="false" 
+        preserveOriginal="true" />
 ```
 
 **TokenFilter Parameters:**
@@ -132,8 +144,22 @@ All tests should be run as part of the build process and be discovered by the ma
 **Example Test Case** using ``BaseTokenStreamTestCase``
 
 ```java
+public void testPassthrough() throws Exception {
+    Analyzer analyzer = new GraphGermanCompoundAnalyzer();
+    final String input = "eins zwei drei";
+    
+    assertAnalyzesTo(analyzer, input,              // input - (THE INPUT STRING TO TOKENIZE)
+            new String[] {"eins", "zwei", "drei"}, // output - (THE EXPECTED OUTPUT TOKENS)
+            new int[] {0, 5, 10},                  // startOffsets
+            new int[] {4, 9, 14},                  // endOffsets
+            new String[] {WORD, WORD, WORD},       // types
+            new int[] {1, 1, 1},                   // positionIncrements
+            new int[] {1, 1, 1});                  // posLengths
+                                     
+}
 ```
 
+**Debug Output on Test Failure**
 A custom class (``TokenStreamDebug``) that is part of the test modules will output debugging information to help you understand the token output.  Below is an example failure and the debug output that is generated from the TokenSream:
 
        original: Finanzgrundsatzangelegenheiten
@@ -153,6 +179,7 @@ A custom class (``TokenStreamDebug``) that is part of the test modules will outp
       start-end: 1:[0-30], 1:[0-30], 2:[0-30], 3:[0-30]
     term 0 expected:<[finanz]> but was:<[Finanzgrundsatzangelegenheiten]>
 
+## Future Improvements
 There are many improvements that could be made to the splitter, the algorithm is fairly simple as it stands right now.
 * statistical / probabilistic splitter - use a statistical data-set in the decomposition.
 * next-word awareness - when we look-ahead at the next word in the stream, we can decide if a word should be decomposed.
