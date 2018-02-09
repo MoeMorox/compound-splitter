@@ -13,8 +13,8 @@ import org.apache.lucene.util.fst.FST.BytesReader;
 import org.apache.lucene.util.fst.FST.INPUT_TYPE;
 
 /**
- * Simple greedy compound splitter for German. Objects of this class are <b>not thread
- * safe</b> and must not be used concurrently.
+ * Simple greedy compound splitter for German. 
+ * This class has been made thread safe.
  */
 public class GermanCompoundSplitter
 {
@@ -28,19 +28,21 @@ public class GermanCompoundSplitter
      * 
      * http://www.canoo.net/services/WordformationRules/Komposition/N-Comp/Adj+N/Komp+N.html?MenuId=WordFormation115012
      */
+    
+    static final String FST_WORDS_FILE = "words.fst";
 
     /**
      * A static FSA with inflected and base surface forms from Morphy.
      * 
      * @see "http://www.wolfganglezius.de/doku.php?id=cl:surfaceForms"
      */
-    private final static FST<Object> surfaceForms;
+    private FST<Object> surfaceForms;
 
     /**
      * A static FSA with glue glueMorphemes. This could be merged into a single FSA
      * together with {@link #surfaceForms}, but I leave it separate for now.
      */
-    private final static FST<Object> glueMorphemes;
+    private FST<Object> glueMorphemes;
 
     /**
      * left-to-right word encoding symbol (FST).
@@ -53,18 +55,18 @@ public class GermanCompoundSplitter
     static final char RTL_SYMBOL = '<';
 
     /**
-     * Load and initialize static data structures.
+     * Constructor, original implementation makes the FST's static, and references them from instance
+     * members. We want a thread-safe implementation per instance
      */
-    static
-    {
+    public GermanCompoundSplitter() {
         try
         {
-            surfaceForms = readMorphyFST();
-            glueMorphemes = createMorphemesFST();
+            surfaceForms = this.readMorphyFST();
+            glueMorphemes = this.createMorphemesFST();
         }
         catch (IOException e)
         {
-            throw new RuntimeException("Failed to initialize static data structures.", e);
+            throw new RuntimeException("Failed to initialize FST data structures.", e);
         }
     }
 
@@ -138,55 +140,80 @@ public class GermanCompoundSplitter
      * A decomposition listener accepts potential decompositions of a word.
      */
     private DecompositionListener listener;
-
-    /**
-     * String builder for the result of {@link #split(CharSequence)}.
-     */
-    private final StringBuilder builder = new StringBuilder();
-
+    
     /**
      * Splits the input sequence of characters into separate words if this sequence is
      * potentially a compound word.
      * 
-     * @param word The word to be split.
-     * @return Returns <code>null</code> if this word is not recognized at all. Returns a
-     *         character sequence with '.'-delimited compound chunks (if ambiguous
-     *         interpretations are possible, they are separated by a ',' character). The
-     *         returned buffer will change with each call to <code>split</code> so copy the
-     *         content if needed.
+     * The response structure is similar to:
+     *  <code>
+     *          String word = "Finanzgrundsatzangelegenheiten";
+     *          wordSequences = {
+     *              {"finanz", "grundsatz", "angelegenheiten"},
+     *              {"finanzgrundsatz", "angelegenheiten"}
+     *          };
+     * </code>
+     * 
+     * @param word The word to be split.  (note that CharSequence is an interface that String implements)
+     * @return Returns <code>null</code> if this word is not recognized at all.
+     *          A String (CharacterSequence) is returned for each part of the word decomposition.
+     *          Each string is contained within an ArrayList, which is contained within another 
+     *          List.
      */
-    public CharSequence split(CharSequence word)
+    public synchronized List<ArrayList<CharSequence>> split(CharSequence word)
     {
         try
         {
             // Lowercase and reverse the input.
-            this.builder.setLength(0);
-            this.builder.append(word);
-            this.builder.reverse();
-            for (int i = builder.length(); --i > 0;)
-                builder.setCharAt(i, Character.toLowerCase(builder.charAt(i)));
-            this.utf32 = UTF16ToUTF32(builder, utf32Builder).get();
-            builder.setLength(0);
+            final String wordLower = word.toString().toLowerCase();
+            final String wordReversed = new StringBuffer(word).reverse().toString().toLowerCase();
+            this.utf32 = UTF16ToUTF32(wordReversed, utf32Builder).get();
+            
+            /*
+                a list of lists containing decompoundings, typically the top-level list will only
+                contain a single element.  When there are multiple interpretations of the word 
+                decomposition then all possibilities will be represented.
+            
+                The structure of wordSequences typically looks like:
+                
+                word = "Finanzgrundsatzangelegenheiten";
+                wordSequences = {
+                    {"finanz", "grundsatz", "angelegenheiten"},
+                    {"finanzgrundsatz", "angelegenheiten"}
+                };
+            */
+            List<ArrayList<CharSequence>> wordSequences = new ArrayList<>(2);
 
+            // Anonymous class for DecompisitionListener interface.
             this.listener = new DecompositionListener()
             {
+                @Override
                 public void decomposition(IntsRef utf32, ArrayDeque<Chunk> chunks)
                 {
-                    if (builder.length() > 0)
-                        builder.append(",");
-
-                    boolean first = true;
+                    // multiple decompositions can be found, which is why we have a list of lists.
+                    ArrayList<CharSequence> wordList = new ArrayList<>(3);
+                    
+                    // each chunk is a word-part.
                     Iterator<Chunk> i = chunks.descendingIterator();
                     while (i.hasNext())
                     {
                         Chunk chunk = i.next();
                         if (chunk.type == ChunkType.WORD)
                         {
-                            if (!first) builder.append('.');
-                            first = false;
-                            builder.append(chunk.toString());
+                            final String wordChunk = chunk.toString();
+                            // skip the word if its identical to the input.
+                            if(wordChunk.equals(wordLower)) {
+                                continue;
+                            }
+                            wordList.add(wordChunk);
                         }
                     }
+                    // don't add empty lists
+                    if(wordList.isEmpty()) 
+                        return;
+                    
+                    // Add the word sub-parts list to wordSequences
+                    wordSequences.add(wordList);
                 }
             };
 
@@ -194,9 +221,14 @@ public class GermanCompoundSplitter
             maxPathsBuilder.grow(utf32.length + 1);
             Arrays.fill(maxPathsBuilder.ints(), 0, utf32.length + 1, Integer.MAX_VALUE);
 
+            // matches the sub-words, triggers the decompisition (this.listener) above.
             matchWord(utf32, utf32.offset);
 
-            return builder.length() == 0 ? null : builder;
+            // sort the word sequences by the number of terms in each sequence, the sequence
+            // with the greatest number of terms will be first in the returned list.
+            sortListBySizeDescending(wordSequences);
+            
+            return wordSequences;
         }
         catch (IOException e)
         {
@@ -210,9 +242,9 @@ public class GermanCompoundSplitter
      */
     private void matchWord(IntsRef utf32, int offset) throws IOException
     {
-        FST.Arc<Object> arc = surfaceForms.getFirstArc(new FST.Arc<Object>());
-        FST.Arc<Object> scratch = new FST.Arc<Object>();
-        List<Chunk> wordsFromHere = new ArrayList<Chunk>();
+        FST.Arc<Object> arc = surfaceForms.getFirstArc(new FST.Arc<>());
+        FST.Arc<Object> scratch = new FST.Arc<>();
+        List<Chunk> wordsFromHere = new ArrayList<>();
 
         BytesReader br = surfaceForms.getBytesReader();
         for (int i = offset; i < utf32.length; i++)
@@ -283,15 +315,15 @@ public class GermanCompoundSplitter
     /**
      * Convert a character sequence <code>s</code> into full unicode codepoints.
      */
-    private static IntsRefBuilder UTF16ToUTF32(CharSequence s, IntsRefBuilder builder)
+    private IntsRefBuilder UTF16ToUTF32(CharSequence s, IntsRefBuilder builder)
     {
         builder.clear();
 
         for (int charIdx = 0, charLimit = s.length(); charIdx < charLimit;)
         {
-            final int utf32 = Character.codePointAt(s, charIdx);
-            builder.append(utf32);
-            charIdx += Character.charCount(utf32);
+            final int u32 = Character.codePointAt(s, charIdx);
+            builder.append(u32);
+            charIdx += Character.charCount(u32);
         }
         return builder;
     }
@@ -299,14 +331,10 @@ public class GermanCompoundSplitter
     /**
      * Load surface forms FST.
      */
-    private static FST<Object> readMorphyFST()
+    private FST<Object> readMorphyFST()
     {
-        try
-        {
-            final InputStream is = 
-                GermanCompoundSplitter.class.getClassLoader().getResourceAsStream("words.fst");
+        try(InputStream is =  GermanCompoundSplitter.class.getClassLoader().getResourceAsStream(FST_WORDS_FILE)) {
             final FST<Object> fst = new FST<Object>(new InputStreamDataInput(is), NoOutputs.getSingleton());
-            is.close();
             return fst;
         }
         catch (IOException e)
@@ -318,10 +346,9 @@ public class GermanCompoundSplitter
     /**
      * Create glue morphemes FST.
      */
-    private static FST<Object> createMorphemesFST() throws IOException
+    private FST<Object> createMorphemesFST() throws IOException
     {
-        String [] morphemes =
-        {
+        String [] morphemes = {
             "e", "es", "en", "er", "n", "ens", "ns", "s"
         };
 
@@ -333,7 +360,7 @@ public class GermanCompoundSplitter
         Arrays.sort(morphemes);
 
         // Build FST.
-        final Builder<Object> builder = new Builder<Object>(INPUT_TYPE.BYTE4,
+        final Builder<Object> builder = new Builder<>(INPUT_TYPE.BYTE4,
             NoOutputs.getSingleton());
         final Object nothing = NoOutputs.getSingleton().getNoOutput();
         IntsRefBuilder intsBuilder = new IntsRefBuilder();
@@ -344,4 +371,31 @@ public class GermanCompoundSplitter
         }
         return builder.finish();
     }
+    
+    /**
+     * Custom Comparator for sorting a list of lists.
+     * 
+     * @param <T>
+     * @param list
+     * @return 
+     */
+    public static <T> List<? extends List<T>> sortListBySizeDescending(List<? extends List<T>> list) {
+        Collections.sort(list, (List<T> o1, List<T> o2) -> Integer.compare(o2.size(), o1.size()));
+        
+        Collections.sort(list, new Comparator<List>() {
+            @Override
+            public int compare(List o1, List o2) {
+                if (o2.size() != o1.size() || o2.isEmpty() || o1.isEmpty()) {
+                    return Integer.compare(o2.size(), o1.size());
+                } else {
+                    String o2ele0 = (String)o2.get(0);
+                    String o1ele0 = (String)o1.get(0);
+                    return Integer.compare(o1ele0.length(), o2ele0.length());
+                }
+                
+            }
+        });
+        return list;
+
+    } 
 }

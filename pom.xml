@@ -2,74 +2,89 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>com.dawidweiss</groupId>
-  <artifactId>compound-splitter</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
+  <groupId>com.dhi.solr</groupId>
+  <artifactId>GraphGermanCompoundTokenFilter</artifactId>
+  <version>6.5.1</version>
   <packaging>jar</packaging>
 
-  <name>Simple German Compound Splitter</name>
+  <name>German Compound Splitter</name>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <maven.compiler.source>1.6</maven.compiler.source>
-    <maven.compiler.target>1.6</maven.compiler.target>
+    <maven.compiler.source>1.8</maven.compiler.source>
+    <maven.compiler.target>1.8</maven.compiler.target>
+    <lucene.version>${project.version}</lucene.version>
+    <junit.version>4.12</junit.version>
   </properties>
 
   <dependencies>
     <dependency>
       <groupId>org.apache.lucene</groupId>
       <artifactId>lucene-core</artifactId>
-      <version>4.10.4</version>
-      <type>jar</type>
+      <version>${lucene.version}</version>
     </dependency>
 
     <dependency>
-      <groupId>org.testng</groupId>
-      <artifactId>testng</artifactId>
-      <version>6.9.4</version>
-      <type>jar</type>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope> 
+    </dependency>
+    <dependency>
+      <groupId>org.apache.lucene</groupId>
+      <artifactId>lucene-analyzers-common</artifactId>
+      <version>${lucene.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.lucene</groupId>
+      <artifactId>lucene-test-framework</artifactId>
+      <version>${lucene.version}</version>
+      <scope>test</scope> 
+    </dependency>
+    <dependency>
+      <groupId>commons-lang</groupId>
+      <artifactId>commons-lang</artifactId>
+      <version>2.6</version>
       <scope>test</scope>
+      <type>jar</type>
     </dependency>
   </dependencies>
 
-  <build>
-    <defaultGoal>test</defaultGoal>
-  </build>
-
-  <profiles>
-    <profile>
-      <id>fst</id>
-
-      <properties>
-        <skipTests>true</skipTests>
-      </properties>
-
-      <build>
-        <defaultGoal>prepare-package</defaultGoal>
-        <plugins>
+    <build>
+      <defaultGoal>prepare-package</defaultGoal>
+      <plugins>
           <plugin>
-            <groupId>org.codehaus.mojo</groupId>
-            <artifactId>exec-maven-plugin</artifactId>
-            <version>1.2</version>
-            <executions>
-              <execution>
-                <phase>prepare-package</phase>
-                <goals>
-                  <goal>java</goal>
-                </goals>
-                <configuration>
-                  <mainClass>org.apache.lucene.analysis.de.compounds.CompileCompoundDictionaries</mainClass>
-                  <arguments>
-                    <argument>src/data/morphy-unknown.txt</argument>
-                    <argument>src/data/morphy.txt</argument>
-                  </arguments>
-                  <classpathScope>compile</classpathScope>
-                </configuration>
-              </execution>
-            </executions>
+               <groupId>org.apache.maven.plugins</groupId>
+               <artifactId>maven-surefire-plugin</artifactId>
+               <version>2.20</version>
+               <configuration>
+                   <argLine>-Duser.language=en -Duser.region=US -Dfile.encoding=UTF-8</argLine>
+                   <includes>
+                       <include>**/Test*.java</include>
+                   </includes>
+               </configuration>
           </plugin>
-        </plugins>
-      </build>
-    </profile>
-  </profiles>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>exec-maven-plugin</artifactId>
+          <version>1.2</version>
+          <executions>
+            <execution>
+              <phase>prepare-package</phase>
+              <goals>
+                <goal>java</goal>
+              </goals>
+              <configuration>
+                <mainClass>org.apache.lucene.analysis.de.compounds.CompileCompoundDictionaries</mainClass>
+                <arguments>
+                  <argument>src/data/morphy-unknown.txt</argument>
+                  <argument>src/data/morphy.txt</argument>
+                </arguments>
+                <classpathScope>compile</classpathScope>
+              </configuration>
+            </execution>
+          </executions>
+        </plugin>
+      </plugins>
+    </build>
 </project>

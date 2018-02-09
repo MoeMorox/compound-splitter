@@ -27,9 +27,12 @@ public class CompileCompoundDictionaries
     {
         if (args.length < 1)
         {
+            System.out.println("No arguments provided! Please provide input file(s) as arguments");
             System.out.println("Args: input1.txt input2.txt ...");
             System.exit(-1);
         }
+        String clsName =  CompileCompoundDictionaries.class.getSimpleName();
+        System.out.println(String.format("%s arguments: %s", clsName, Arrays.toString(args)));
 
         final HashSet<BytesRef> words = new HashSet<BytesRef>();
         for (int i = 0; i < args.length; i++)
@@ -41,9 +44,11 @@ public class CompileCompoundDictionaries
             Pattern pattern = Pattern.compile("\\s+");
             String line, last = null;
             StringBuilder buffer = new StringBuilder();
+            System.out.println(String.format("%s iterating file: %s",  clsName, args[i]));
             while ((line = reader.readLine()) != null)
             {
-                if (line.indexOf('#') >= 0)
+                // ignore comments
+                if (line.trim().startsWith("#"))
                     continue;
 
                 line = pattern.split(line)[0].trim();
@@ -67,7 +72,7 @@ public class CompileCompoundDictionaries
                 buffer.setLength(len);
                 buffer.reverse().append(GermanCompoundSplitter.RTL_SYMBOL);
                 words.add(new BytesRef(buffer));
-                if ((++count % 100000) == 0) System.err.println("Line: " + count);
+                if ((++count % 100000) == 0) System.out.println("Line: " + count);
             }
             reader.close();
 
@@ -77,7 +82,12 @@ public class CompileCompoundDictionaries
         final BytesRef [] all = new BytesRef [words.size()];
         words.toArray(all);
 
-        Arrays.sort(all, BytesRef.getUTF8SortedAsUnicodeComparator());
+        // These lines were modified for 6.x api changes...
+        // removed in https://issues.apache.org/jira/browse/LUCENE-7053
+        // ""This patch also removes the BytesRef-Comparator completely and just 
+        // implements compareTo. So all code can rely on natural ordering.""
+        // Arrays.sort(all, BytesRef.getUTF8SortedAsUnicodeComparator());
+        Arrays.sort(all); // rely on natural ordering
         serialize("src/main/resources/words.fst", all);
     }
 
@@ -94,8 +104,8 @@ public class CompileCompoundDictionaries
         }
         final FST<Object> fst = builder.finish();
 
-        final OutputStreamDataOutput out = new OutputStreamDataOutput(new FileOutputStream(file));
-        fst.save(out);
-        out.close();
+        try (OutputStreamDataOutput out = new OutputStreamDataOutput(new FileOutputStream(file))) {
+            fst.save(out);
+        }
     }
 }

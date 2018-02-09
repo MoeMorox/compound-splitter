@@ -1,4 +1,89 @@
 
+# List of abbreviations: 
+# ABK abbreviation 
+# ADJ adjective 
+# ADV adverb 
+# AKK accusative 
+# ART items 
+# ATT attributive 
+# AUX auxiliary verb 
+# BEG concomitant 
+# B/S accompanying or vicarious 
+# CAU causal 
+# COU country 
+# DAT dative 
+# DEF certainly 
+# DEM demonstrative pronoun 
+# EIG proper noun 
+# EIZ extended infinitive with too 
+# FEM feminine noun 
+# GEB area 
+# GEN Genitive 
+# GEO geographically proper name 
+# GRU Basic form 
+# IND undetermined 
+# INF infinitive 
+# INJ interjection 
+# IMP imperative 
+# INR interrogative 
+# KJ1 conjunctive 1 
+# KJ2 Subjunctive 2 
+# KMP compound 
+# KOM comparative 
+# KON conjunction 
+# LOK local 
+# MAS masculine noun 
+# MOD modal 
+# MOU mountains 
+# NAC Surname 
+# NEB besides arranging 
+# NEG Nepationspartikel 
+# NEU neutral 
+# NIL Word form not found 
+# NOA without article 
+# NOG without a genus 
+# NOM Nominative 
+# NON non-weak 
+# PA1 participle 1 
+# PA2 Past participle 2 
+# PER personal
+# PLU Plural 
+# POS possessive 
+# PRA Present 
+# PRD predicative 
+# PRI proportional 
+# PRO pronoun 
+# PRP preposition 
+# PRT Preterite, imperfect
+# REF reflexive 
+# REL relative 
+# RIN relative or interrogative 
+# SFT weak 
+# SIN Singular 
+# SOL single 
+# STD city 
+# STV vicarious 
+# SUB noun 
+# SUP superlative 
+# SZ  punctuation mark 
+# SZE End of sentence 
+# SZK comma 
+# SZT Record separator 
+# TMP temporal 
+# UNT subordinate 
+# VER verb 
+# VGL comparative 
+# VOR first name
+# WAT waters 
+# ZAL numeral 
+# ZAN Number or number sequence 
+# ZUS Verbs with separable or inseparable prefixes 
+# 1 1st person 
+# 2 2nd person 
+# 3 3rd person 
+# A polite 
+# B familiar 
+
 # Manually added here.
 
 schnittstelle	schnittstelle	?
@@ -27,7 +112,6 @@ rot rot ?
 gel gel ?
 
 # Imported from languagetool (Daniel)
-
 Interessen  Interesse   SUB:NOM:PLU:NEU
 Interessen  Interesse   SUB:AKK:PLU:NEU
 Interessen  Interesse   SUB:GEN:PLU:NEU
@@ -300,3 +384,14 @@ Protonen    Proton  SUB:NOM:PLU:NEU
 Protonen    Proton  SUB:GEN:PLU:NEU
 Protonen    Proton  SUB:DAT:PLU:NEU
 Protonen    Proton  SUB:AKK:PLU:NEU
+buchhalter buchhalter SUB:NOM:SIN:NEU
+buchhalters buchhalter SUB:NOM:PLU:NEU
+analyst      analyst SUB:NOM:SIN:MAS
+analysten    analyst SUB:GEN:SIN:MAS
+analystin    analyst SUB:GEN:SIN:FEM
+analystinnen analyst SUB:GEN:PLU:FEM
+hochschul    hoschul SUB:NOM:SIN:NEU
+absolvent    absolvent SUB:NOM:SIN:NEU
+absolventen  absolvent SUB:GEN:SIN:MAS
+absolventin  absolvent SUB:GEN:SIN:FEM
+absolventinnen absolvent SUB:GEN:PLU:FEM
