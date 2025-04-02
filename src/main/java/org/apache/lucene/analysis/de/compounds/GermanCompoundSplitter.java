@@ -11,6 +11,14 @@ import org.apache.lucene.util.UnicodeUtil;
 import org.apache.lucene.util.fst.*;
 import org.apache.lucene.util.fst.FST.BytesReader;
 import org.apache.lucene.util.fst.FST.INPUT_TYPE;
+import org.apache.lucene.util.fst.FSTCompiler;
+import org.apache.lucene.store.DataInput;
+import org.apache.lucene.store.ByteArrayDataInput;
+import org.apache.lucene.util.fst.FST;
+import org.apache.lucene.util.fst.NoOutputs;
+import java.net.URL;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 /**
  * Simple greedy compound splitter for German. 
@@ -331,14 +339,15 @@ public class GermanCompoundSplitter
     /**
      * Load surface forms FST.
      */
-    private FST<Object> readMorphyFST()
-    {
-        try(InputStream is =  GermanCompoundSplitter.class.getClassLoader().getResourceAsStream(FST_WORDS_FILE)) {
-            final FST<Object> fst = new FST<Object>(new InputStreamDataInput(is), NoOutputs.getSingleton());
-            return fst;
-        }
-        catch (IOException e)
-        {
+    private FST<Object> readMorphyFST() {
+        try {
+            URL url = GermanCompoundSplitter.class.getClassLoader().getResource(FST_WORDS_FILE);
+            if (url == null) {
+                throw new IOException("Ressource " + FST_WORDS_FILE + " nicht gefunden");
+            }
+            Path path = Paths.get(url.toURI());
+            return FST.read(path, NoOutputs.getSingleton());
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
@@ -360,16 +369,19 @@ public class GermanCompoundSplitter
         Arrays.sort(morphemes);
 
         // Build FST.
-        final Builder<Object> builder = new Builder<>(INPUT_TYPE.BYTE4,
-            NoOutputs.getSingleton());
+        FSTCompiler<Object> compiler = new FSTCompiler.Builder<>(FST.INPUT_TYPE.BYTE4, 
+            NoOutputs.getSingleton()).build();
         final Object nothing = NoOutputs.getSingleton().getNoOutput();
         IntsRefBuilder intsBuilder = new IntsRefBuilder();
+        
         for (String morpheme : morphemes)
         {
             UTF16ToUTF32(morpheme, intsBuilder);
-            builder.add(intsBuilder.get(), nothing);
+            compiler.add(intsBuilder.get(), nothing);
         }
-        return builder.finish();
+        
+        FST.FSTMetadata<Object> metadata = compiler.compile();
+        return FST.fromFSTReader(metadata, compiler.getFSTReader());
     }
     
     /**

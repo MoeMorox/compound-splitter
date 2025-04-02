@@ -5,6 +5,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.regex.Pattern;
@@ -12,7 +13,7 @@ import java.util.regex.Pattern;
 import org.apache.lucene.store.OutputStreamDataOutput;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.IntsRefBuilder;
-import org.apache.lucene.util.fst.Builder;
+import org.apache.lucene.util.fst.FSTCompiler;
 import org.apache.lucene.util.fst.FST;
 import org.apache.lucene.util.fst.FST.INPUT_TYPE;
 import org.apache.lucene.util.fst.NoOutputs;
@@ -94,18 +95,22 @@ public class CompileCompoundDictionaries
     private static void serialize(String file, BytesRef [] all) throws IOException
     {
         final Object nothing = NoOutputs.getSingleton().getNoOutput();
-        final Builder<Object> builder = new Builder<Object>(INPUT_TYPE.BYTE4, NoOutputs.getSingleton());
+        FSTCompiler.Builder<Object> builder = new FSTCompiler.Builder<>(
+            FST.INPUT_TYPE.BYTE4,
+            NoOutputs.getSingleton()
+        );
+        FSTCompiler<Object> compiler = builder.build();
         final IntsRefBuilder intsRef = new IntsRefBuilder();
         for (BytesRef br : all)
         {
             intsRef.clear();
             intsRef.copyUTF8Bytes(br);
-            builder.add(intsRef.get(), nothing);
+            compiler.add(intsRef.get(), nothing);
         }
-        final FST<Object> fst = builder.finish();
 
-        try (OutputStreamDataOutput out = new OutputStreamDataOutput(new FileOutputStream(file))) {
-            fst.save(out);
-        }
+        FST.FSTMetadata<Object> fstMetadata = compiler.compile();
+        final FST<Object> fst = FST.fromFSTReader(fstMetadata, compiler.getFSTReader());
+
+        fst.save(Paths.get(file));
     }
 }

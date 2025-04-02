@@ -257,7 +257,7 @@ public class GraphGermanCompoundTokenFilter extends TokenFilter {
         List<TokenAttributes> previous = null;
         for (List<CharSequence> terms : termSequences) {
             previous = this.calculateTermAttributes(srcToken, terms, previous);
-            attrSequences.add((ArrayList)previous);
+            attrSequences.add(new ArrayList<TokenAttributes>(previous));
         }
         return attrSequences;
     }
