@@ -1,7 +1,7 @@
 package org.apache.lucene.analysis.de.compounds;
 
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
+import java.nio.file.*;
 import java.util.*;
 
 import org.apache.lucene.store.InputStreamDataInput;
@@ -17,8 +17,6 @@ import org.apache.lucene.store.ByteArrayDataInput;
 import org.apache.lucene.util.fst.FST;
 import org.apache.lucene.util.fst.NoOutputs;
 import java.net.URL;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 
 /**
  * Simple greedy compound splitter for German. 
@@ -341,13 +339,21 @@ public class GermanCompoundSplitter
      */
     private FST<Object> readMorphyFST() {
         try {
-            URL url = GermanCompoundSplitter.class.getClassLoader().getResource(FST_WORDS_FILE);
-            if (url == null) {
+            InputStream inputStream = getClass().getClassLoader().getResourceAsStream(FST_WORDS_FILE);
+            
+            if (inputStream == null) {
                 throw new IOException("Ressource " + FST_WORDS_FILE + " nicht gefunden");
             }
-            Path path = Paths.get(url.toURI());
-            return FST.read(path, NoOutputs.getSingleton());
-        } catch (Exception e) {
+
+            BufferedInputStream bufferedInputStream = new BufferedInputStream(inputStream);
+            DataInput dataInput = new InputStreamDataInput(bufferedInputStream);
+
+            Outputs<Object> outputs = NoOutputs.getSingleton();
+            FST.FSTMetadata<Object> metadata = FST.readMetadata(dataInput, outputs);
+            
+            return new FST<>(metadata, dataInput);
+        } catch (IOException e) {
+            e.printStackTrace();
             throw new RuntimeException(e);
         }
     }
